@@ -51,6 +51,7 @@ listaAuto.addEventListener('click', e => {
 
 // Estado global — armazena os dados brutos em Celsius
 let dadosClima = null;
+let dadosPrevisao = null;
 let unidade = 'C'; // 'C' ou 'F'
 
 async function buscarClima(cidade) {
@@ -70,10 +71,11 @@ async function buscarClima(cidade) {
 
     dadosClima = await resClima.json();
     const previsao = await resPrevisao.json();
+    dadosPrevisao = previsao.list;
 
     renderizarClima(dadosClima);
-    renderizarPrevisao(previsao.list);
-    renderizarGrafico(previsao.list);
+    renderizarPrevisao(dadosPrevisao);
+    renderizarGrafico(dadosPrevisao);
     mostrarEstado(null); // esconde loading
 
   } catch (error) {
@@ -92,6 +94,39 @@ function renderizarClima(dados) {
   atualizarTemperatura(); // respeita a unidade escolhida
 
   document.getElementById('clima-atual').hidden = false;
+}
+
+function renderizarPrevisao(lista) {
+  // Agrupa por dia e pega o registro mais próximo do meio-dia
+  const porDia = {};
+  lista.forEach(item => {
+    const data = new Date(item.dt * 1000);
+    const chave = data.toLocaleDateString('pt-BR');
+    const hora = data.getHours();
+    if (!porDia[chave] || Math.abs(hora - 12) < Math.abs(new Date(porDia[chave].dt * 1000).getHours() - 12)) {
+      porDia[chave] = item;
+    }
+  });
+
+  const hoje = new Date().toLocaleDateString('pt-BR');
+  const dias = Object.entries(porDia).filter(([dia]) => dia !== hoje).slice(0, 5);
+
+  const container = document.getElementById('cards-previsao');
+  container.innerHTML = dias.map(([dia, item]) => {
+    const temp = converterTemp(item.main.temp);
+    const tempMin = converterTemp(item.main.temp_min);
+    const tempMax = converterTemp(item.main.temp_max);
+    const diaSemana = new Date(item.dt * 1000).toLocaleDateString('pt-BR', { weekday: 'short', day: '2-digit', month: '2-digit' });
+    return `
+      <div class="card-previsao">
+        <span class="card-previsao__dia">${diaSemana}</span>
+        <img src="https://openweathermap.org/img/wn/${item.weather[0].icon}@2x.png" alt="${item.weather[0].description}" title="${item.weather[0].description}">
+        <span class="card-previsao__temp">${temp}°${unidade}</span>
+        <span class="card-previsao__minmax">${tempMin}° / ${tempMax}°</span>
+      </div>`;
+  }).join('');
+
+  document.getElementById('previsao-section').hidden = false;
 }
 
 function mostrarEstado(tipo, mensagem = '') {
