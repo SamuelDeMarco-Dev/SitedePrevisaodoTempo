@@ -1,4 +1,4 @@
-import {getPrevisaoTempo} from "./backend/Services/buscaPrevisao.js";
+import {getPrevisaoTempo} from "../backend/Services/buscaPrevisao.js";
 
 try {
     const clima = await getPrevisaoTempo("Joaçaba");   
