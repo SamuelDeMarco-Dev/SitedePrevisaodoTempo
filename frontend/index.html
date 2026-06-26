@@ -1,12 +1,76 @@
 <!DOCTYPE html>
-<html lang="pt-BR">
+<html lang="pt-BR" data-theme="dark">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <meta http-equiv="refresh" content="0; url=index.html">
   <title>ClimaTempo</title>
+  <link rel="stylesheet" href="style.css">
+  <!-- Chart.js para o gráfico -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js" defer></script>
 </head>
 <body>
-</body>
-<script></script>
-</html>
+
+  <header class="app-header">
+    <h1>ClimaTempo</h1>
+    <button id="btn-tema" aria-label="Alternar tema">🌙</button>
+  </header>
+
+  <main>
+
+    <!-- Seção de busca -->
+    <section class="busca-section">
+      <div class="busca-wrap">
+        <input id="input-cidade" type="text"
+               placeholder="Digite uma cidade..."
+               autocomplete="off">
+        <button id="btn-geolocal" aria-label="Usar minha localização">📍</button>
+        <!-- Lista do autocomplete -->
+        <ul id="autocomplete-lista" role="listbox" hidden></ul>
+      </div>
+
+      <!-- Favoritos -->
+      <div id="favoritos" class="favoritos"></div>
+    </section>
+
+    <!-- Feedback de carregamento/erro -->
+    <div id="estado" class="estado" hidden></div>
+
+    <!-- Clima atual -->
+    <section id="clima-atual" class="clima-atual" hidden>
+      <div class="clima-header">
+        <div>
+          <h2 id="nome-cidade"></h2>
+          <p id="descricao-clima"></p>
+        </div>
+        <button id="btn-favorito" aria-label="Salvar nos favoritos">☆</button>
+      </div>
+
+      <div class="clima-dados">
+        <img id="icone-clima" alt="ícone do clima">
+        <span id="temperatura" class="temperatura"></span>
+        <button id="btn-unidade">°C / °F</button>
+      </div>
+
+      <div class="clima-extras">
+        <span>💧 Umidade: <strong id="umidade"></strong></span>
+        <span>💨 Vento: <strong id="vento"></strong></span>
+        <span>🌡️ Sensação: <strong id="sensacao"></strong></span>
+      </div>
+    </section>
+
+    <!-- Gráfico de temperatura do dia -->
+    <section id="grafico-section" hidden>
+      <h3>Temperatura hoje</h3>
+      <canvas id="grafico-temp"></canvas>
+    </section>
+
+    <!-- Previsão 5 dias -->
+    <section id="previsao-section" hidden>
+      <h3>Próximos 5 dias</h3>
+      <div id="cards-previsao" class="cards-previsao"></div>
+    </section>
+
+  </main>
+
+  <script type="module" src="app.js"></script>
+</body></html>

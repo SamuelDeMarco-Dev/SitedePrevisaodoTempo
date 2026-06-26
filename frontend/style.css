@@ -1,0 +1,26 @@
+/* Tema escuro (padrão) */
+[data-theme="dark"] {
+  --bg:          #0f172a;
+  --surface:     #1e293b;
+  --texto:       #e2e8f0;
+  --texto-muted: #94a3b8;
+  --accent:      #38bdf8;
+  --borda:       rgba(148,163,184,0.15);
+}
+
+/* Tema claro */
+[data-theme="light"] {
+  --bg:          #f0f9ff;
+  --surface:     #ffffff;
+  --texto:       #0f172a;
+  --texto-muted: #475569;
+  --accent:      #0284c7;
+  --borda:       rgba(0,0,0,0.10);
+}
+
+body {
+  background: var(--bg);
+  color: var(--texto);
+  /* A transição suaviza a troca de tema */
+  transition: background 0.3s, color 0.3s;
+}
