@@ -1,6 +1,6 @@
 const PAIS = "BR";
 const API_KEY = process.env.OPEN_WEATHER_API_KEY;
-const URL_API = process.env.URL_API;
+const URL_API = "https://api.openweathermap.org/data/2.5/weather";
 
 export async function getPrevisaoTempo(cidade) {
   if (!cidade) {
