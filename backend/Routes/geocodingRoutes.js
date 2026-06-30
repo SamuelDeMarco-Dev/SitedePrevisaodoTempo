@@ -1,10 +1,9 @@
 import { Router } from 'express';
-import { getCidades } from '../Controllers/geocodingController.js';
-import { getCidadePorCoordenadas } from '../Controllers/geocodingController.js';
+import { getCidades, getCidadePorCoordenadas } from '../Controllers/geocodingController.js';
 
 const router = Router();
 
 router.get('/cidades', getCidades);
-router.get('/cidadeCoordenadas', getCidadePorCoordenadas);
+router.get('/cidade-por-coords', getCidadePorCoordenadas);
 
 export default router;

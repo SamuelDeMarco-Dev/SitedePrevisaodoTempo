@@ -1,4 +1,4 @@
-import { getGeocoding } from '../Services/geocoding.js';
+import { getGeocoding, getCidadePorCoordenadas as getCidadeService } from '../Services/geocoding.js';
 
 export async function getCidades(req, res) {
     const { q } = req.query;
@@ -13,7 +13,7 @@ export async function getCidades(req, res) {
 export async function getCidadePorCoordenadas(req, res) {
     const { lat, lon } = req.query;
     try {
-        const cidade = await getCidadePorCoordenadas(lat, lon);
+        const cidade = await getCidadeService(lat, lon);
         res.json(cidade);
     } catch (erro) {
         res.status(400).json({ erro: erro.message });
