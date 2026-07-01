@@ -86,7 +86,7 @@ SitedePrevisaodoTempo/
 │
 ├── frontend/
 │   ├── index.html                         # Estrutura HTML da aplicação
-│   ├── style.css                          # Estilos com variáveis CSS (dark/light)
+│   ├── style.css                          # Layout completo (cards, grid, botões) com variáveis CSS (dark/light)
 │   ├── app.js                             # Entry point: importa o AppController
 │   └── js/
 │       ├── model/
@@ -335,6 +335,7 @@ Views são **funções puras de renderização**: recebem dados como parâmetros
 |---|---|---|
 | `renderizarClima(dados, unidade)` | DTO `Clima`, `'C'\|'F'` | Preenche nome, ícone, descrição, umidade, vento e chama `atualizarTemperatura` |
 | `atualizarTemperatura(dados, unidade)` | DTO `Clima`, `'C'\|'F'` | Atualiza apenas os campos de temperatura sem re-renderizar o bloco inteiro |
+| `atualizarBotaoFavorito(favoritado)` | `boolean` | Alterna o ícone do botão de favorito (`☆`/`★`) conforme a cidade atual esteja ou não salva |
 
 `converterTemp(celsius, unidade)` é uma função **privada** (sem `export`) — utilizada internamente pelas duas funções acima. Aplica `(C × 9/5) + 32` para Fahrenheit e arredonda para inteiro.
 
@@ -398,18 +399,23 @@ Arquivo central do frontend: registra todos os event listeners e orquestra o flu
 2. `Promise.all([Api.buscarClima, Api.buscarPrevisao5dias])` — requisições paralelas
 3. Armazena resultados em `AppState.dadosClima` e `AppState.dadosPrevisao`
 4. Chama `renderizarClima`, `renderizarPrevisao` e `renderizarGrafico`
-5. `mostrarEstado(null)` — remove o loading
-6. `catch` → `mostrarEstado('erro', erro.message)`
+5. Chama `atualizarBotaoFavorito`, comparando a cidade recebida com `AppState.getFavoritos()`
+6. `mostrarEstado(null)` — remove o loading
+7. `catch` → `mostrarEstado('erro', erro.message)`
+
+**Tema:** ao carregar o módulo, lê `localStorage.getItem('tema')` e aplica no `<html>` antes de qualquer renderização — sem isso, a página sempre abriria no tema escuro padrão do HTML, ignorando a preferência salva.
 
 **Event listeners registrados:**
 
 | Elemento | Evento | Ação |
 |---|---|---|
 | `#btn-tema` | `click` | Alterna `data-theme` no `<html>` e persiste no localStorage |
-| `#btn-unidade` | `click` | Alterna `AppState.unidade`, re-renderiza temperatura e gráfico |
-| `#input-cidade` | `input` | `Api.buscarSugestoes` com debounce de 400ms |
+| `#btn-unidade` | `click` | Alterna `AppState.unidade`, re-renderiza temperatura, cards de previsão e gráfico |
+| `#btn-favorito` | `click` | Adiciona/remove a cidade atual em `AppState.getFavoritos()` e atualiza a lista e o ícone |
+| `#favoritos` | `click` (delegado) | Lê `dataset.cidade` do `.fav-tag` clicado e chama `buscarClima` |
+| `#input-cidade` | `input` | `Api.buscarSugestoes` com debounce de 400ms, dentro de `try/catch` — falha de rede apenas oculta a lista |
 | `#autocomplete-lista` | `click` | Preenche input e chama `buscarClima` |
-| `#btn-geolocal` | `click` | Solicita GPS, converte coords em cidade via `Api.buscarCidadePorCoordenadas` |
+| `#btn-geolocal` | `click` | Solicita GPS; no callback de sucesso, `Api.buscarCidadePorCoordenadas` roda em `try/catch` para exibir erro amigável em caso de falha |
 
 **`debounce(fn, delay)`** — definida localmente. HOF (Higher-Order Function) que atrasa a execução e cancela chamadas anteriores a cada novo evento. Evita uma requisição de API por tecla digitada.
 
@@ -481,3 +487,6 @@ Restringe resultados ao Brasil, evitando que "Vitória" retorne cidades de outro
 
 **`data-cidade` em vez de `onclick` inline nos favoritos**
 ES Modules não expõem funções no escopo global — `onclick="buscarClima(...)"` no HTML quebraria. O controller usa `addEventListener` com leitura de `dataset.cidade` para capturar o clique.
+
+**`.estado[hidden] { display: none }` explícito no CSS**
+Seções como `#clima-atual` ficam ocultas só com o atributo `hidden`, mas `.estado` também define `display: flex` para o layout do spinner. Como as duas regras têm a mesma especificidade, a do autor (CSS) vence a do navegador (UA stylesheet) e o `hidden` seria ignorado sem essa sobrescrita explícita.
