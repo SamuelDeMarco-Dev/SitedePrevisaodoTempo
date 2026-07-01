@@ -1,13 +1,17 @@
 import AppState from '../model/AppState.js';
 import * as Api from './api.js';
-import { renderizarClima, atualizarTemperatura } from '../view/climaView.js';
+import { renderizarClima, atualizarTemperatura, atualizarBotaoFavorito } from '../view/climaView.js';
 import { renderizarPrevisao, renderizarGrafico } from '../view/previsaoView.js';
 import { renderizarFavoritos } from '../view/favoritosView.js';
 import { mostrarEstado } from '../view/uiView.js';
 
-const html        = document.documentElement;
-const inputCidade = document.getElementById('input-cidade');
-const listaAuto   = document.getElementById('autocomplete-lista');
+const html          = document.documentElement;
+const inputCidade   = document.getElementById('input-cidade');
+const listaAuto     = document.getElementById('autocomplete-lista');
+const containerFavs = document.getElementById('favoritos');
+
+const temaSalvo = localStorage.getItem('tema') || 'dark';
+html.setAttribute('data-theme', temaSalvo);
 
 function debounce(fn, delay) {
     let timer;
@@ -31,6 +35,7 @@ export async function buscarClima(cidade) {
         renderizarClima(AppState.dadosClima, AppState.unidade);
         renderizarPrevisao(AppState.dadosPrevisao, AppState.unidade);
         renderizarGrafico(AppState.dadosPrevisao, AppState.unidade);
+        atualizarBotaoFavorito(AppState.getFavoritos().includes(AppState.dadosClima.cidade));
         mostrarEstado(null);
     } catch (erro) {
         mostrarEstado('erro', erro.message);
@@ -47,17 +52,45 @@ document.getElementById('btn-tema').addEventListener('click', () => {
 document.getElementById('btn-unidade').addEventListener('click', () => {
     AppState.unidade = AppState.unidade === 'C' ? 'F' : 'C';
     atualizarTemperatura(AppState.dadosClima, AppState.unidade);
-    if (AppState.dadosPrevisao) renderizarGrafico(AppState.dadosPrevisao, AppState.unidade);
+    if (AppState.dadosPrevisao) {
+        renderizarPrevisao(AppState.dadosPrevisao, AppState.unidade);
+        renderizarGrafico(AppState.dadosPrevisao, AppState.unidade);
+    }
+});
+
+document.getElementById('btn-favorito').addEventListener('click', () => {
+    if (!AppState.dadosClima) return;
+    const cidade = AppState.dadosClima.cidade;
+    const favoritos = AppState.getFavoritos();
+    const index = favoritos.indexOf(cidade);
+
+    if (index === -1) favoritos.push(cidade);
+    else favoritos.splice(index, 1);
+
+    AppState.salvarFavoritos(favoritos);
+    renderizarFavoritos();
+    atualizarBotaoFavorito(index === -1);
+});
+
+containerFavs.addEventListener('click', e => {
+    if (!e.target.classList.contains('fav-tag')) return;
+    const cidade = e.target.dataset.cidade;
+    inputCidade.value = cidade;
+    buscarClima(cidade);
 });
 
 inputCidade.addEventListener('input', debounce(async (e) => {
-    const cidades = await Api.buscarSugestoes(e.target.value);
-    listaAuto.innerHTML = cidades.map(c =>
-        `<li role="option" data-nome="${c.nome},${c.pais}">
-            ${c.nome}${c.estado ? ', ' + c.estado : ''} - ${c.pais}
-        </li>`
-    ).join('');
-    listaAuto.hidden = cidades.length === 0;
+    try {
+        const cidades = await Api.buscarSugestoes(e.target.value);
+        listaAuto.innerHTML = cidades.map(c =>
+            `<li role="option" data-nome="${c.nome},${c.pais}">
+                ${c.nome}${c.estado ? ', ' + c.estado : ''} - ${c.pais}
+            </li>`
+        ).join('');
+        listaAuto.hidden = cidades.length === 0;
+    } catch (erro) {
+        listaAuto.hidden = true;
+    }
 }, 400));
 
 listaAuto.addEventListener('click', e => {
@@ -75,10 +108,14 @@ document.getElementById('btn-geolocal').addEventListener('click', () => {
     mostrarEstado('carregando');
     navigator.geolocation.getCurrentPosition(
         async (pos) => {
-            const { latitude: lat, longitude: lon } = pos.coords;
-            const { nome } = await Api.buscarCidadePorCoordenadas(lat, lon);
-            inputCidade.value = nome;
-            buscarClima(nome);
+            try {
+                const { latitude: lat, longitude: lon } = pos.coords;
+                const { nome } = await Api.buscarCidadePorCoordenadas(lat, lon);
+                inputCidade.value = nome;
+                buscarClima(nome);
+            } catch (erro) {
+                mostrarEstado('erro', erro.message);
+            }
         },
         (erro) => {
             const msgs = {

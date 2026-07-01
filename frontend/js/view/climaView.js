@@ -22,3 +22,8 @@ export function atualizarTemperatura(dados, unidade) {
   document.getElementById('temperatura').textContent = `${temp}°${unidade}`;
   document.getElementById('sensacao').textContent = `${sensacao}°${unidade}`;
 }
+
+export function atualizarBotaoFavorito(favoritado) {
+  const btn = document.getElementById('btn-favorito');
+  btn.textContent = favoritado ? '★' : '☆';
+}
