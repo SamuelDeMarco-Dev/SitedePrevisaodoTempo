@@ -1,6 +1,6 @@
 # ClimaTempo — Site de Previsão do Tempo
 
-Aplicação web de previsão do tempo desenvolvida com Node.js + Express no backend e JavaScript vanilla no frontend. Integra a API OpenWeatherMap para exibir clima atual, previsão de 5 dias, gráfico horário de temperatura e geolocalização automática.
+Aplicação web de previsão do tempo desenvolvida com Node.js + Express no backend e JavaScript vanilla no frontend, seguindo o padrão arquitetural **MVC (Model-View-Controller)**. Integra a API OpenWeatherMap para exibir clima atual, previsão de 5 dias, gráfico horário de temperatura, geolocalização automática e favoritos persistentes.
 
 **Autor:** Samuel De Marco | **Licença:** ISC
 
@@ -25,12 +25,42 @@ Aplicação web de previsão do tempo desenvolvida com Node.js + Express no back
 
 | Pacote | Versão | Função |
 |---|---|---|
-| `express` | ^5.2.1 | Servidor HTTP; rota das APIs REST e servir o frontend |
-| `cors` | ^2.8.6 | Middleware que libera requisições cross-origin (browser → servidor) |
+| `express` | ^5.2.1 | Servidor HTTP; registra rotas REST e serve o frontend |
+| `cors` | ^2.8.6 | Libera requisições cross-origin (browser → servidor) |
 | `dotenv` | ^17.4.2 | Carrega variáveis do `.env` em `process.env` sem expô-las no código |
 | Chart.js (CDN) | Última estável | Gráfico de linha para evolução horária da temperatura |
-| OpenWeatherMap API | v2.5 | Fonte de todos os dados: clima, forecast e geocoding |
-| ES Modules (nativo) | Node.js 18+ | `type: "module"` no `package.json` habilita `import/export` sem transpilação |
+| OpenWeatherMap API | v2.5 | Fonte de dados: clima atual, forecast e geocoding |
+| ES Modules (nativo) | Node.js 18+ | `type: "module"` habilita `import/export` sem transpilação |
+
+---
+
+## Arquitetura MVC
+
+O projeto adota o padrão **MVC** para separar responsabilidades entre camadas:
+
+```
+Requisição HTTP
+      ↓
+   Routes          ← mapeia URLs para controllers
+      ↓
+  Controllers      ← valida entrada, chama service, formata resposta
+      ↓
+   Services        ← chama a API externa (OpenWeatherMap)
+      ↓
+    Models         ← transforma o dado bruto em DTO limpo
+```
+
+No **frontend**, o padrão é aplicado com JavaScript vanilla:
+
+```
+Evento do usuário
+      ↓
+  Controller       ← captura eventos, chama api.js, atualiza o Model
+      ↓
+    Model          ← estado centralizado (AppState)
+      ↓
+    Views          ← funções puras de renderização de DOM
+```
 
 ---
 
@@ -38,17 +68,39 @@ Aplicação web de previsão do tempo desenvolvida com Node.js + Express no back
 
 ```
 SitedePrevisaodoTempo/
+│
 ├── backend/
-│   ├── server.js                    # Servidor Express + rotas REST
-│   └── Services/
-│       ├── buscaPrevisao.js         # Clima atual (OpenWeatherMap /weather)
-│       ├── buscaPrevisao5dias.js    # Previsão 5 dias (/forecast)
-│       └── geocoding.js             # Autocomplete e geocoding reverso
+│   ├── server.js                          # Inicialização do Express e registro de middlewares
+│   ├── Routes/
+│   │   ├── climaRoutes.js                 # Rotas: /api/clima, /api/previsao5dias
+│   │   └── geocodingRoutes.js             # Rotas: /api/cidades, /api/cidade-por-coords
+│   ├── Controllers/
+│   │   ├── climaController.js             # Handlers HTTP de clima e previsão
+│   │   └── geocodingController.js         # Handlers HTTP de geocoding
+│   ├── Services/
+│   │   ├── buscaPrevisao.js               # Chama /data/2.5/weather
+│   │   ├── buscaPrevisao5dias.js          # Chama /data/2.5/forecast
+│   │   └── geocoding.js                   # Chama geo/1.0/direct e geo/1.0/reverse
+│   └── Models/
+│       └── Clima.js                       # DTO que formata o dado bruto do clima atual
+│
 ├── frontend/
-│   ├── index.html                   # Estrutura HTML da aplicação
-│   ├── app.js                       # Toda a lógica client-side
-│   └── style.css                    # Estilos com variáveis CSS (dark/light)
-├── .env                             # Credenciais da API (não commitado)
+│   ├── index.html                         # Estrutura HTML da aplicação
+│   ├── style.css                          # Estilos com variáveis CSS (dark/light)
+│   ├── app.js                             # Entry point: importa o AppController
+│   └── js/
+│       ├── model/
+│       │   └── AppState.js                # Estado global centralizado
+│       ├── view/
+│       │   ├── climaView.js               # Renderiza clima atual e temperatura
+│       │   ├── previsaoView.js            # Renderiza cards de 5 dias e gráfico
+│       │   ├── favoritosView.js           # Renderiza lista de favoritos
+│       │   └── uiView.js                  # Gerencia estados de UI (loading, erro)
+│       └── controller/
+│           ├── api.js                     # Fetch calls ao backend
+│           └── AppController.js           # Event listeners e orquestração
+│
+├── .env                                   # Credenciais da API (não commitado)
 ├── .gitignore
 ├── package.json
 └── package-lock.json
@@ -74,7 +126,6 @@ npm install
 Obtenha sua chave em [openweathermap.org/api](https://openweathermap.org/api) e crie o arquivo na raiz:
 ```env
 OPEN_WEATHER_API_KEY=sua_chave_aqui
-URL_API=https://api.openweathermap.org/data/2.5/weather
 ```
 
 **4. Executar**
@@ -97,8 +148,7 @@ http://localhost:3000
 
 | Variável | Obrigatória | Descrição |
 |---|---|---|
-| `OPEN_WEATHER_API_KEY` | Sim | Chave de autenticação da OpenWeatherMap. Usada nos três serviços do backend. |
-| `URL_API` | Sim | URL base do endpoint de clima atual (`https://api.openweathermap.org/data/2.5/weather`). Separar da chave permite trocar o endpoint sem alterar o código. |
+| `OPEN_WEATHER_API_KEY` | Sim | Chave de autenticação da OpenWeatherMap. Usada nos três services do backend. |
 | `PORT` | Não | Porta do servidor. Padrão: `3000`. Útil para plataformas de deploy com porta dinâmica. |
 
 > **Segurança:** `.env` está no `.gitignore` e nunca deve ser commitado. Em produção, configure as variáveis diretamente no painel do serviço de hospedagem.
@@ -110,24 +160,32 @@ http://localhost:3000
 Todos retornam JSON e respondem com `400` em caso de erro.
 
 ### `GET /api/clima`
-Retorna o clima atual de uma cidade.
+Retorna o clima atual de uma cidade formatado pelo DTO `Clima`.
 - **Query param:** `cidade` — nome da cidade (ex.: `?cidade=São Paulo`)
-- **Delega para:** `buscaPrevisao.js → getPrevisaoTempo()`
+- **Controller:** `climaController.getClima()`
+- **Service:** `buscaPrevisao.getPrevisaoTempo()`
+- **Resposta:** `{ cidade, temperatura, sensacao, umidade, vento, descricao, icone }`
 
 ### `GET /api/previsao5dias`
 Retorna até 40 entradas de previsão em intervalos de 3 horas (~5 dias).
 - **Query param:** `cidade`
-- **Delega para:** `buscaPrevisao5dias.js → getPrevisaoTempo5dias()`
+- **Controller:** `climaController.getPrevisao5dias()`
+- **Service:** `buscaPrevisao5dias.getPrevisaoTempo5dias()`
+- **Resposta:** objeto com array `list[]` da OpenWeatherMap
 
 ### `GET /api/cidades`
 Retorna até 5 sugestões de cidades para autocomplete.
 - **Query param:** `q` — texto parcial (ex.: `?q=São`)
-- **Delega para:** `geocoding.js → getGeocoding()`
+- **Controller:** `geocodingController.getCidades()`
+- **Service:** `geocoding.getGeocoding()`
+- **Resposta:** `[{ nome, estado, pais, lat, lon }]`
 
 ### `GET /api/cidade-por-coords`
 Geocoding reverso: converte coordenadas em nome de cidade.
 - **Query params:** `lat`, `lon`
-- **Delega para:** `geocoding.js → getCidadePorCoordenadas()`
+- **Controller:** `geocodingController.getCidadePorCoordenadas()`
+- **Service:** `geocoding.getCidadePorCoordenadas()`
+- **Resposta:** `{ nome }`
 
 ---
 
@@ -135,310 +193,255 @@ Geocoding reverso: converte coordenadas em nome de cidade.
 
 ### `backend/server.js`
 
-Ponto de entrada do backend. Configura o Express, aplica middlewares e registra as quatro rotas. Usa ES Modules (`import/export`).
+Ponto de entrada do backend. Responsabilidade única: configurar o Express e montar os roteadores. Não define rotas diretamente.
 
-**`cors()`** — middleware aplicado globalmente. Sem ele, o browser bloquearia as chamadas de `fetch` do frontend por política de segurança (CORS). Necessário especialmente durante o desenvolvimento, quando frontend e backend podem rodar em origens diferentes.
+```js
+app.use(cors());
+app.use(express.static('../frontend'));
+app.use('/api', climaRoutes);
+app.use('/api', geocodingRoutes);
+```
 
-**`express.static('../frontend')`** — serve os arquivos estáticos do frontend pelo mesmo processo do servidor. Acessar `localhost:3000` já entrega o `index.html` automaticamente, sem precisar de um servidor separado.
-
-**Handlers de rota** — todos seguem o mesmo padrão: extraem parâmetros de `req.query`, delegam para o service correspondente com `await`, retornam JSON ou respondem com `res.status(400).json({ erro })` em caso de falha. Erros nunca derrubam o servidor — são capturados pelo bloco `try/catch` de cada handler.
+**Ordem dos middlewares:** `cors()` e `static` são registrados antes das rotas. O Express processa na ordem de registro — registrar rotas antes do `cors` faria requisições serem respondidas sem os headers corretos.
 
 ---
 
-### `backend/Services/buscaPrevisao.js`
+### `backend/Routes/`
 
-#### `getPrevisaoTempo(cidade)` — async
+Mapeiam URLs para funções de controller usando `express.Router()`. Não contêm lógica.
 
-Busca o estado atual do clima. Valida que `cidade`, `API_KEY` e `URL_API` existem antes de qualquer chamada de rede, lançando erro com mensagem descritiva se algum faltar.
+| Arquivo | Rota | Controller |
+|---|---|---|
+| `climaRoutes.js` | `GET /clima` | `getClima` |
+| `climaRoutes.js` | `GET /previsao5dias` | `getPrevisao5dias` |
+| `geocodingRoutes.js` | `GET /cidades` | `getCidades` |
+| `geocodingRoutes.js` | `GET /cidade-por-coords` | `getCidadePorCoordenadas` |
+
+---
+
+### `backend/Controllers/`
+
+Recebem `req` e `res` do Express. Extraem parâmetros de `req.query`, delegam para o service e formatam a resposta. Tratam erros com `try/catch` — nunca deixam uma exceção derrubar o servidor.
+
+**`climaController.js`**
+
+```js
+export async function getClima(req, res) {
+    const { cidade } = req.query;
+    try {
+        const dados = await getPrevisaoTempo(cidade);
+        res.json(new Clima(dados));         // aplica o DTO antes de responder
+    } catch (erro) {
+        res.status(400).json({ erro: erro.message });
+    }
+}
+```
+
+**Alias de import para evitar conflito de nomes:** quando o service e o controller teriam o mesmo nome, usa-se `import { fn as fnService }` para distinguir os dois no mesmo escopo.
+
+```js
+import { getPrevisaoTempo5dias as getPrevisao5diasService } from '../Services/buscaPrevisao5dias.js';
+import { getCidadePorCoordenadas as getCidadeService } from '../Services/geocoding.js';
+```
+
+---
+
+### `backend/Services/`
+
+Encapsulam as chamadas à API externa. Validam pré-condições (`cidade`, `API_KEY`) antes de qualquer requisição de rede, lançando erros descritivos que sobem até o controller.
 
 **Parâmetros enviados à OpenWeatherMap:**
 
 | Parâmetro | Valor | Motivo |
 |---|---|---|
-| `q` | `"Cidade,BR"` | O sufixo `,BR` restringe ao Brasil, evitando conflitos com cidades homônimas em outros países |
-| `units` | `metric` | Retorna temperatura em Celsius; a conversão para °F é feita no frontend |
-| `lang` | `pt_br` | Descrição do clima em português ("chuva leve" em vez de "light rain") |
-| `appid` | `process.env.OPEN_WEATHER_API_KEY` | Chave lida do ambiente, nunca hardcoded no código-fonte |
+| `q` | `"Cidade,BR"` | Sufixo `,BR` restringe ao Brasil, evita conflitos com homônimas internacionais |
+| `units` | `metric` | Retorna temperatura em Celsius; conversão para °F feita no frontend |
+| `lang` | `pt_br` | Descrição em português ("chuva leve" em vez de "light rain") |
+| `cnt` | `40` | Limita forecast a 5 dias × 8 intervalos de 3h; reduz payload |
 
-**Retorna:** objeto JSON bruto da API com `name`, `main` (temp, humidity, feels_like, pressure), `weather` (icon, description), `wind` e `clouds`.
-
----
-
-### `backend/Services/buscaPrevisao5dias.js`
-
-#### `getPrevisaoTempo5dias(cidade)` — async
-
-Estrutura idêntica ao `getPrevisaoTempo`, mas aponta para o endpoint `/data/2.5/forecast` e passa `cnt=40`, limitando a resposta a 40 entradas (5 dias × 8 intervalos de 3h). Isso evita trazer dados desnecessários e reduz o tamanho do payload.
+**Comparativo dos endpoints:**
 
 | | `buscaPrevisao.js` | `buscaPrevisao5dias.js` |
 |---|---|---|
 | Endpoint | `/data/2.5/weather` | `/data/2.5/forecast` |
 | Parâmetro extra | — | `cnt: 40` |
 | Estrutura da resposta | Objeto único | Objeto com array `list[]` |
-| Uso | Temperatura atual | Cards diários + gráfico |
-
-**Retorna:** objeto com propriedade `list` — array de objetos, cada um com `dt` (timestamp Unix), `main`, `weather`, `wind` e `dt_txt` (data/hora em string ISO).
 
 ---
 
-### `backend/Services/geocoding.js`
+### `backend/Models/Clima.js`
 
-#### `getGeocoding(query)` — async
-
-Busca cidades cujo nome corresponde ao texto digitado. Retorna array vazio imediatamente se `query` for falsy, evitando requisições desnecessárias. Usa o endpoint `geo/1.0/direct` com `limit=5`.
-
-**Transformação de dados:** a resposta bruta da API é mapeada para um objeto simplificado. O campo `nome` usa preferencialmente o nome em português (`local_names.pt`) com fallback para o nome em inglês — garante que cidades com nomes diferentes por idioma apareçam corretamente.
+DTO (Data Transfer Object) que transforma o dado bruto da OpenWeatherMap em um objeto com apenas os campos necessários para o frontend. O frontend deixa de depender da estrutura interna da API — se a OpenWeatherMap mudar o formato, só este arquivo precisa ser ajustado.
 
 ```js
-// API bruta → após .map()
-{ nome: "São Paulo", estado: "São Paulo", pais: "BR", lat: -23.5, lon: -46.6 }
+export class Clima {
+    constructor(raw) {
+        this.cidade      = raw.name;
+        this.temperatura = raw.main.temp;
+        this.sensacao    = raw.main.feels_like;
+        this.umidade     = raw.main.humidity;
+        this.vento       = raw.wind.speed;
+        this.descricao   = raw.weather[0].description;
+        this.icone       = raw.weather[0].icon;
+    }
+}
 ```
 
-**Retorna:** `Array<{nome, estado, pais, lat, lon}>` com até 5 resultados.
-
----
-
-#### `getCidadePorCoordenadas(lat, lon)` — async
-
-Geocoding reverso: converte coordenadas geográficas em nome de cidade. Usa o endpoint `geo/1.0/reverse` com `limit=1` — apenas um resultado é necessário porque as coordenadas GPS já são exatas.
-
-Acionada exclusivamente pela rota `/api/cidade-por-coords`, que é chamada após o navegador fornecer as coordenadas via Geolocation API.
-
-**Retorna:** `{nome: string}` — apenas o nome da cidade, que é usado para preencher o input e disparar a busca completa.
+> `raw.weather` é um array — a API retorna uma lista de condições, mesmo que seja só uma. `[0]` acessa a condição principal.
 
 ---
 
 ## Documentação do Frontend
 
-### `frontend/index.html`
+### `frontend/app.js` — Entry Point
 
-Define a estrutura semântica da aplicação. Seções de conteúdo dinâmico são inicialmente ocultas; `app.js` as exibe conforme os dados chegam.
-
-| Elemento | Propósito |
-|---|---|
-| `data-theme="dark"` no `<html>` | Ponto de controle do tema. CSS usa este atributo para selecionar variáveis corretas sem JS adicional |
-| `autocomplete="off"` no input | Desabilita o autocomplete nativo para não conflitar com o sistema customizado do app |
-| Botão 📍 | Dispara o fluxo de geolocalização, separado do input para UX clara |
-| `#lista-autocomplete` | Lista oculta populada dinamicamente por `buscarSugestoes()` |
-| `#status-feedback` | Container único para loading spinner e erros — alterna estados via `mostrarEstado()` |
-| `canvas#grafico-temp` | Ponto de montagem do Chart.js para o gráfico de linha horário |
-| `#previsao-container` | Container dos cards de 5 dias, populado via `innerHTML` por `renderizarPrevisao()` |
-| Chart.js com `defer` | `defer` garante carregamento sem bloquear a renderização inicial do HTML |
-
----
-
-### `frontend/style.css`
-
-Implementa o sistema de tema claro/escuro usando variáveis CSS nativas, sem JavaScript adicional para troca de estilos. O atributo `data-theme` no `<html>` é o único interruptor necessário.
-
-```css
-[data-theme="dark"] {
-  --bg:          #0f172a;  /* fundo — azul escuro profundo */
-  --surface:     #1e293b;  /* cards — slate médio */
-  --texto:       #e2e8f0;  /* texto principal — cinza claro */
-  --texto-muted: #94a3b8;  /* texto secundário */
-  --accent:      #38bdf8;  /* destaque — azul céu */
-  --borda:       rgba(148,163,184,0.15);
-}
-```
-
-O tema claro sobrescreve as mesmas variáveis com valores claros. A transição de `0.3s` no `body` anima suavemente a troca entre temas.
-
----
-
-### `frontend/app.js`
-
-Arquivo central do frontend. Gerencia estado global, orquestra requisições ao backend e atualiza o DOM. JavaScript vanilla puro — sem framework.
-
-#### Estado Global
-
-| Variável | Tipo | Propósito |
-|---|---|---|
-| `dadosClima` | `object \| null` | Último resultado de `/api/clima`. Mantido em memória para que a troca de unidade funcione sem nova requisição |
-| `dadosPrevisao` | `array \| null` | Lista de forecast. Reutilizada ao trocar unidade para recriar gráfico e cards |
-| `unidade` | `'C' \| 'F'` | Unidade atual. Lida por todas as funções de renderização |
-| `graficoInstance` | `Chart \| null` | Referência à instância ativa do Chart.js. Necessária para destruí-la antes de criar nova e evitar memory leak |
-
----
-
-#### Gerenciamento de Tema
-
-**`btnTema` click handler**
-
-Lê `data-theme` do `<html>`, inverte entre `'dark'` e `'light'`, e persiste no `localStorage`. Na próxima visita, o tema é restaurado automaticamente na inicialização.
-
----
-
-#### Autocomplete
-
-**`debounce(fn, delay)`**
-
-Função de ordem superior (HOF) que envolve outra função e atrasa sua execução. Cancela o timeout anterior a cada chamada; a função interna só executa se o usuário parar de digitar pelo tempo configurado.
+Arquivo mínimo: importa o controller principal e nada mais. Mantido para que o `index.html` não precise conhecer a estrutura interna de pastas.
 
 ```js
-function debounce(fn, delay) {
-  let timeout
-  return (...args) => {
-    clearTimeout(timeout)
-    timeout = setTimeout(() => fn(...args), delay)
-  }
-}
+import './js/controller/AppController.js';
 ```
 
-**Por que 400ms:** rápido o suficiente para parecer responsivo, lento o suficiente para evitar uma chamada de API por tecla — economizando cota da API (plano gratuito tem limite de 60 req/min).
+---
+
+### `frontend/js/model/AppState.js`
+
+Estado global centralizado da aplicação. Em vez de variáveis soltas espalhadas pelo código, todo o estado fica em um único objeto — facilita rastrear onde e como os dados mudam.
+
+```js
+const AppState = {
+    dadosClima:      null,   // último resultado de /api/clima (DTO Clima)
+    dadosPrevisao:   null,   // array list[] de /api/previsao5dias
+    unidade:         'C',    // 'C' ou 'F' — lido por todas as views
+    graficoInstance: null,   // referência ao Chart.js ativo
+
+    getFavoritos()      { return JSON.parse(localStorage.getItem('favoritos') || '[]'); },
+    salvarFavoritos(l)  { localStorage.setItem('favoritos', JSON.stringify(l)); }
+};
+```
+
+`dadosClima` e `dadosPrevisao` são mantidos em memória para que a troca de unidade (°C/°F) funcione sem nova requisição à API.
+
+`graficoInstance` precisa ser mantida para chamar `.destroy()` antes de recriar o gráfico — sem isso, cada busca acumula instâncias do Chart.js na memória (memory leak).
 
 ---
 
-**`buscarSugestoes(texto)` — async**
+### `frontend/js/view/`
 
-Chamada pelo handler de debounce. Só dispara a requisição se o texto tiver 2 ou mais caracteres. Faz `fetch` para `/api/cidades?q=texto`, renderiza os itens na `#lista-autocomplete` e esconde a lista se o array retornado estiver vazio.
+Views são **funções puras de renderização**: recebem dados como parâmetros, atualizam o DOM e não fazem fetch nem acessam estado global por conta própria.
 
-O mínimo de 2 caracteres evita resultados irrelevantes e poupa chamadas à API. Cada item da lista recebe `data-cidade` para facilitar a captura no event handler de clique.
+#### `climaView.js`
 
----
+| Função | Parâmetros | Responsabilidade |
+|---|---|---|
+| `renderizarClima(dados, unidade)` | DTO `Clima`, `'C'\|'F'` | Preenche nome, ícone, descrição, umidade, vento e chama `atualizarTemperatura` |
+| `atualizarTemperatura(dados, unidade)` | DTO `Clima`, `'C'\|'F'` | Atualiza apenas os campos de temperatura sem re-renderizar o bloco inteiro |
 
-#### Busca de Clima
+`converterTemp(celsius, unidade)` é uma função **privada** (sem `export`) — utilizada internamente pelas duas funções acima. Aplica `(C × 9/5) + 32` para Fahrenheit e arredonda para inteiro.
 
-**`buscarClima(cidade)` — async**
+#### `previsaoView.js`
 
-Função central do app. Sequência de execução:
+| Função | Parâmetros | Responsabilidade |
+|---|---|---|
+| `renderizarPrevisao(dados, unidade)` | `list[]`, `'C'\|'F'` | Transforma 40 entradas em 5 cards diários |
+| `renderizarGrafico(dados, unidade)` | `list[]`, `'C'\|'F'` | Cria gráfico de linha com Chart.js para o dia atual |
 
-1. `mostrarEstado('carregando')` — exibe spinner e oculta seções de conteúdo
-2. `Promise.all([fetch clima, fetch previsão])` — dispara as duas requisições **em paralelo**. O tempo total é o da mais lenta, não a soma das duas
-3. Parseia e valida respostas — verifica `response.ok`; lança exceção com mensagem do servidor em caso de erro
-4. Armazena em `dadosClima` e `dadosPrevisao` — possibilita troca de unidade sem nova requisição
-5. Chama `renderizarClima()`, `renderizarPrevisao()` e `renderizarGrafico()`
-6. `mostrarEstado(null)` — remove o loading; conteúdo renderizado fica visível
+**Lógica de seleção de dias em `renderizarPrevisao`:**
+- Agrupa entradas por data (`dt` convertido para `toLocaleDateString`)
+- Para cada dia, seleciona a entrada mais próxima do meio-dia (mais representativa)
+- Exclui o dia atual (já exibido no bloco principal)
+- Limita a 5 dias com `.slice(0, 5)`
 
----
+**`AppState.graficoInstance`** é destruída antes de criar novo gráfico:
+```js
+if (AppState.graficoInstance) AppState.graficoInstance.destroy();
+AppState.graficoInstance = new Chart(ctx, { ... });
+```
 
-#### Renderização
+#### `favoritosView.js`
 
-**`renderizarClima(dados)`**
+`renderizarFavoritos()` lê `AppState.getFavoritos()` e renderiza botões com `data-cidade`. O event listener de clique nesses botões fica no `AppController` — a view não registra eventos.
 
-Atualiza nome da cidade, ícone, descrição, umidade e vento. Não calcula temperatura diretamente — delega para `atualizarTemperatura()`, que respeita a unidade atual.
+#### `uiView.js`
 
----
-
-**`renderizarPrevisao(lista)`**
-
-Transforma as 40 entradas brutas em 5 cards diários. Lógica de seleção:
-
-- **Agrupa por data** usando `dt_txt.split(' ')[0]` para extrair YYYY-MM-DD
-- **Seleciona a entrada mais próxima do meio-dia** — mais representativa da temperatura do dia
-- **Exclui hoje** — já exibido na seção principal
-- **Limita a 5 dias** com `.slice(0, 5)` após a deduplicação
-- **Min/Max** — varre todas as entradas do dia para os extremos reais
-- Chama `converterTemp()` ao exibir valores, respeitando a unidade atual
-
----
-
-**`mostrarEstado(tipo, mensagem?)`**
-
-Máquina de estados da UI com três modos:
+`mostrarEstado(tipo, mensagem?)` — máquina de estados da UI:
 
 | `tipo` | Comportamento |
 |---|---|
-| `'carregando'` | Exibe spinner animado; oculta `#secao-clima`, `#grafico` e `#previsao` |
-| `'erro'` | Exibe mensagem + botão "Tentar novamente"; mantém conteúdo anterior oculto |
-| `null` | Oculta o container de feedback; seções de conteúdo ficam visíveis |
-
-Centralizar essa lógica evita código de visibilidade espalhado em várias funções.
+| `'carregando'` | Exibe spinner; oculta seções de conteúdo |
+| `'erro'` | Exibe mensagem + botão "Tentar novamente" |
+| `null` | Oculta o container de feedback |
 
 ---
 
-**`renderizarGrafico(lista)`**
+### `frontend/js/controller/api.js`
 
-Cria o gráfico de linha da temperatura do dia usando Chart.js.
+Encapsula todos os `fetch` ao backend. Cada função valida a resposta HTTP, lança `Error` com a mensagem do servidor se `!res.ok`, e retorna o JSON parseado diretamente.
 
-- **Filtra o dia atual** comparando `dt_txt.startsWith(dataHoje)`
-- **Labels:** hora e minuto de cada entrada (`HH:MM`)
-- **`graficoInstance.destroy()` antes de criar:** o Chart.js anexa event listeners e objetos internos à `<canvas>`. Criar novo gráfico no mesmo canvas sem destruir o anterior causa memory leak — os objetos antigos permanecem na memória indefinidamente
-- **Configurações visuais:** curva suavizada (`tension: 0.4`), área preenchida com transparência, cor de acento `#38bdf8` alinhada ao tema
-- **`responsive: true`:** adapta o gráfico ao container sem quebrar o layout
+| Função | Endpoint chamado |
+|---|---|
+| `buscarClima(cidade)` | `GET /api/clima?cidade=` |
+| `buscarPrevisao5dias(cidade)` | `GET /api/previsao5dias?cidade=` |
+| `buscarSugestoes(texto)` | `GET /api/cidades?q=` (retorna `[]` se `texto.length < 2`) |
+| `buscarCidadePorCoordenadas(lat, lon)` | `GET /api/cidade-por-coords?lat=&lon=` |
+
+O controller nunca faz `fetch` diretamente — delega sempre para este módulo.
 
 ---
 
-#### Geolocalização
+### `frontend/js/controller/AppController.js`
 
-**`btnGeolocalizacao` click handler**
+Arquivo central do frontend: registra todos os event listeners e orquestra o fluxo Model → View.
 
-1. Verifica suporte: `if (!navigator.geolocation)` — exibe erro em browsers sem suporte
-2. Chama `getCurrentPosition()` — o browser solicita permissão ao usuário
-3. Em sucesso: extrai `coords.latitude` e `coords.longitude`, chama `/api/cidade-por-coords`
-4. Preenche o input com o nome retornado e chama `buscarClima()`
+**`buscarClima(cidade)`** — função principal:
 
-**Tratamento de erros por código:**
+1. `mostrarEstado('carregando')` — exibe spinner
+2. `Promise.all([Api.buscarClima, Api.buscarPrevisao5dias])` — requisições paralelas
+3. Armazena resultados em `AppState.dadosClima` e `AppState.dadosPrevisao`
+4. Chama `renderizarClima`, `renderizarPrevisao` e `renderizarGrafico`
+5. `mostrarEstado(null)` — remove o loading
+6. `catch` → `mostrarEstado('erro', erro.message)`
 
-| Código | Causa | Mensagem |
+**Event listeners registrados:**
+
+| Elemento | Evento | Ação |
 |---|---|---|
-| `1` | Permissão negada | Solicita habilitação nas configurações |
-| `2` | Posição indisponível | Informa falha de GPS |
-| `3` | Timeout | Solicita nova tentativa |
+| `#btn-tema` | `click` | Alterna `data-theme` no `<html>` e persiste no localStorage |
+| `#btn-unidade` | `click` | Alterna `AppState.unidade`, re-renderiza temperatura e gráfico |
+| `#input-cidade` | `input` | `Api.buscarSugestoes` com debounce de 400ms |
+| `#autocomplete-lista` | `click` | Preenche input e chama `buscarClima` |
+| `#btn-geolocal` | `click` | Solicita GPS, converte coords em cidade via `Api.buscarCidadePorCoordenadas` |
 
-> **Nota:** a Geolocation API exige HTTPS em produção. Em `localhost`, funciona sem TLS.
-
----
-
-#### Favoritos
-
-**`getFavoritos()`**
-Lê o array do `localStorage` (chave `'favoritos'`). Usa `JSON.parse()` com fallback para `[]` — evita erro de parsing no primeiro acesso quando a chave não existe.
-
-**`salvarFavoritos(lista)`**
-Persiste o array como JSON no `localStorage`. Separada de `getFavoritos()` para responsabilidade única.
-
-**`toggleFavorito(cidade)`**
-Adiciona se não existir; remove se existir. Verifica com `includes()` (comparação exata). Após a operação, persiste e re-renderiza a lista.
-
-**`renderizarFavoritos()`**
-Lê os favoritos e renderiza botões clicáveis. Cada botão exibe o nome com ★ e, ao ser clicado, chama `buscarClima(cidade)`. Executada na inicialização do app para restaurar favoritos da sessão anterior.
-
----
-
-#### Conversão de Temperatura
-
-**`converterTemp(celsius)`**
-
-Função pura. Retorna Celsius sem alteração se `unidade === 'C'`; aplica `(C × 9/5) + 32` e arredonda para inteiro em Fahrenheit. Arredonda porque decimais em °F não acrescentam informação útil ao usuário.
-
-```js
-const converterTemp = (c) =>
-  unidade === 'C' ? c : Math.round(c * 9/5 + 32)
-```
-
-**`atualizarTemperatura()`**
-Re-renderiza apenas os elementos de temperatura (atual e sensação térmica) sem recarregar o bloco de clima inteiro. Só age se `dadosClima !== null` — evita erro se o usuário clicar no toggle antes de qualquer busca.
-
-**`btnUnidade` click handler**
-Inverte `unidade`, chama `atualizarTemperatura()` e recria o gráfico com `renderizarGrafico(dadosPrevisao)`. O Chart.js não suporta atualização de dados em gráficos de linha sem re-renderizar, por isso a recriação completa é necessária.
+**`debounce(fn, delay)`** — definida localmente. HOF (Higher-Order Function) que atrasa a execução e cancela chamadas anteriores a cada novo evento. Evita uma requisição de API por tecla digitada.
 
 ---
 
 ## Fluxo de Dados Completo
 
 ```
-Usuário digita
-    ↓ (debounce 400ms)
-GET /api/cidades?q=texto
-    ↓
-geocoding.js → OpenWeatherMap geo/1.0/direct
-    ↓
-Lista de sugestões renderizada
+Usuário digita cidade
+        ↓ (debounce 400ms)
+Api.buscarSugestoes(texto)
+        ↓
+GET /api/cidades?q=texto  →  geocodingController  →  geocoding.js  →  OpenWeatherMap geo/1.0/direct
+        ↓
+favoritosView.renderizarFavoritos()  ←  lista renderizada no autocomplete
 
 Usuário seleciona cidade
-    ↓
-buscarClima(cidade)
-    ↓
+        ↓
+AppController.buscarClima(cidade)
+        ↓
 Promise.all([
-  GET /api/clima?cidade=X       →  buscaPrevisao.js    → /data/2.5/weather
-  GET /api/previsao5dias?cidade=X → buscaPrevisao5dias.js → /data/2.5/forecast
+  Api.buscarClima(cidade)          →  climaController   →  buscaPrevisao.js    →  /data/2.5/weather
+  Api.buscarPrevisao5dias(cidade)  →  climaController   →  buscaPrevisao5dias  →  /data/2.5/forecast
 ])
-    ↓
-Armazena dadosClima + dadosPrevisao
-    ↓
-renderizarClima() + renderizarPrevisao() + renderizarGrafico()
-    ↓
+        ↓
+AppState.dadosClima = DTO Clima (formatado pelo Models/Clima.js)
+AppState.dadosPrevisao = list[] (dado bruto da API)
+        ↓
+climaView.renderizarClima()
+previsaoView.renderizarPrevisao()
+previsaoView.renderizarGrafico()
+        ↓
 UI atualizada
 ```
 
@@ -446,23 +449,35 @@ UI atualizada
 
 ## Decisões Técnicas
 
-**ES Modules no backend**
-`type: "module"` no `package.json` alinha a sintaxe do backend com o frontend sem Babel ou CommonJS. Requer Node.js 12+.
+**Padrão MVC**
+Separa responsabilidades em camadas independentes. Controllers não conhecem HTML; Views não fazem fetch; Services não sabem de HTTP. Cada camada pode ser modificada ou testada sem afetar as outras.
+
+**DTO no backend (`Models/Clima.js`)**
+O frontend recebe apenas os campos que usa. Se a OpenWeatherMap alterar a estrutura da resposta, só o Model precisa ser ajustado — as Views permanecem intactas.
+
+**`import { fn as alias }` para evitar conflito de nomes**
+Quando o service e o controller têm o mesmo nome de função, o alias no import (`getPrevisaoTempo5dias as getPrevisao5diasService`) evita redeclaração no mesmo escopo.
+
+**ES Modules no backend e frontend**
+`type: "module"` no `package.json` alinha a sintaxe dos dois lados sem Babel ou transpilação. Requer Node.js 18+.
 
 **`Promise.all` para requisições paralelas**
-Clima atual e previsão de 5 dias são independentes. Buscados simultaneamente — tempo total é o da mais lenta, não a soma.
+Clima atual e previsão de 5 dias são independentes. Buscados simultaneamente — tempo total é o da mais lenta, não a soma das duas.
 
 **Dados em Celsius, conversão no frontend**
-A API retorna sempre em `units=metric`. Toda conversão para °F acontece no cliente via `converterTemp()`. Evita duas chamadas de API e mantém uma única fonte de verdade.
+A API sempre retorna `units=metric`. Toda conversão para °F acontece via `converterTemp()` nas Views. Evita duas chamadas de API e mantém uma única fonte de verdade.
 
-**Debounce no autocomplete**
-Sem debounce, cada keystroke dispararia uma chamada de API. Com 400ms, só se chama quando o usuário para de digitar — preserva a cota da conta gratuita (60 req/min).
+**Debounce de 400ms no autocomplete**
+Sem debounce, cada keystroke dispararia uma chamada de API. Com 400ms, só executa quando o usuário para de digitar — preserva a cota do plano gratuito (60 req/min).
 
 **`graficoInstance.destroy()` antes de criar novo gráfico**
-O Chart.js anexa event listeners à `<canvas>`. Criar novo gráfico sem destruir o anterior acumula objetos na memória a cada busca.
+O Chart.js anexa event listeners e objetos internos à `<canvas>`. Criar novo gráfico sem destruir o anterior acumula objetos na memória a cada busca (memory leak).
 
 **`encodeURIComponent` nas chamadas de fetch**
-Nomes de cidades com acentos ou espaços (ex.: "São Paulo") precisam ser codificados para URL. `encodeURIComponent()` transforma `ã` em `%C3%A3`, garantindo que a requisição chegue corretamente ao servidor.
+Nomes com acentos ou espaços ("São Paulo") precisam ser codificados para URL. `encodeURIComponent()` garante que a requisição chegue corretamente ao servidor.
 
 **Sufixo `,BR` nas queries de cidade**
 Restringe resultados ao Brasil, evitando que "Vitória" retorne cidades de outros países antes da cidade brasileira.
+
+**`data-cidade` em vez de `onclick` inline nos favoritos**
+ES Modules não expõem funções no escopo global — `onclick="buscarClima(...)"` no HTML quebraria. O controller usa `addEventListener` com leitura de `dataset.cidade` para capturar o clique.
