@@ -1,0 +1,9 @@
+services:
+  clima-tempo:
+    build: .
+    container_name: clima-tempo
+    ports:
+      - "3001:3000"
+    env_file:
+      - .env
+    restart: unless-stopped
